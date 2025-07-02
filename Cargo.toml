@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/cross-chain-swap-backend"
+]
+resolver = "2"
