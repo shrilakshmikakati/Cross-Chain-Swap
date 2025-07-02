@@ -1,15 +1,13 @@
-// src/lib.rs
 use ic_cdk::api::management_canister::bitcoin::{
-    bitcoin_get_balance, bitcoin_get_utxos, bitcoin_send_transaction, BitcoinAddress,
-    BitcoinNetwork, GetBalanceRequest, GetUtxosRequest, MillisatoshiPerByte, Outpoint, SendTransactionRequest, Utxo,
+    bitcoin_get_balance, bitcoin_get_utxos, bitcoin_send_transaction,
+    BitcoinNetwork, GetBalanceRequest, GetUtxosRequest, SendTransactionRequest, Utxo,
 };
 use ic_cdk::api::management_canister::ecdsa::{
-    ecdsa_public_key, sign_with_ecdsa, EcdsaCurve, EcdsaKeyId, EcdsaPublicKeyArgument,
-    SignWithEcdsaArgument,
+    ecdsa_public_key, EcdsaCurve, EcdsaKeyId, EcdsaPublicKeyArgument,
 };
-use ic_cdk::{api, caller, id, init, post_upgrade, pre_upgrade, query, storage, update};
-use ic_cdk_macros::*;
-use candid::{CandidType, Decode, Encode, Principal};
+use ic_cdk::{api, caller, id};
+use ic_cdk_macros::{init, post_upgrade, pre_upgrade, query, update};
+use candid::{CandidType, Principal};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,9 +16,8 @@ use sha2::{Digest, Sha256};
 // Types and Constants
 const BITCOIN_NETWORK: BitcoinNetwork = BitcoinNetwork::Testnet;
 const KEY_NAME: &str = "dfx_test_key";
-const ETHEREUM_RPC_URL: &str = "https://sepolia.infura.io/v3/YOUR_INFURA_KEY";
 
-#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum ChainType {
     Bitcoin,
     Ethereum,
@@ -123,15 +120,17 @@ async fn get_bitcoin_address() -> Result<String, String> {
     Ok(bitcoin_address)
 }
 
-#[query]
+#[update]
 async fn get_bitcoin_balance(address: String) -> Result<u64, String> {
-    let balance_result = bitcoin_get_balance(GetBalanceRequest {
+    let balance_request = GetBalanceRequest {
         address,
         network: BITCOIN_NETWORK,
         min_confirmations: Some(1),
-    })
-    .await
-    .map_err(|e| format!("Failed to get Bitcoin balance: {:?}", e))?;
+    };
+
+    let balance_result = bitcoin_get_balance(balance_request)
+        .await
+        .map_err(|e| format!("Failed to get Bitcoin balance: {:?}", e))?;
 
     Ok(balance_result.0)
 }
@@ -238,7 +237,7 @@ async fn execute_swap(swap_id: String) -> Result<SwapResponse, String> {
     let caller = caller();
     
     // Get swap request
-    let mut swap = SWAPS.with(|swaps| {
+    let swap = SWAPS.with(|swaps| {
         swaps.borrow().get(&swap_id).cloned()
     }).ok_or("Swap not found")?;
 
@@ -249,7 +248,6 @@ async fn execute_swap(swap_id: String) -> Result<SwapResponse, String> {
 
     // Check if swap is still valid
     if api::time() > swap.timeout {
-        swap.status = SwapStatus::Failed;
         update_swap_status(&swap_id, SwapStatus::Failed);
         return Err("Swap timeout exceeded".to_string());
     }
@@ -258,7 +256,6 @@ async fn execute_swap(swap_id: String) -> Result<SwapResponse, String> {
         SwapStatus::Pending => {
             // Lock source assets
             let lock_result = lock_source_assets(&swap).await?;
-            swap.status = SwapStatus::Locked;
             update_swap_status(&swap_id, SwapStatus::Locked);
             
             Ok(SwapResponse {
@@ -271,7 +268,6 @@ async fn execute_swap(swap_id: String) -> Result<SwapResponse, String> {
         SwapStatus::Locked => {
             // Verify lock and release target assets
             let release_result = release_target_assets(&swap).await?;
-            swap.status = SwapStatus::Completed;
             update_swap_status(&swap_id, SwapStatus::Completed);
             
             Ok(SwapResponse {
@@ -296,13 +292,15 @@ async fn lock_source_assets(swap: &SwapRequest) -> Result<String, String> {
 
 async fn lock_bitcoin_assets(swap: &SwapRequest) -> Result<String, String> {
     // Get UTXOs for the source address
-    let utxos_result = bitcoin_get_utxos(GetUtxosRequest {
+    let utxos_request = GetUtxosRequest {
         address: swap.source_address.clone(),
         network: BITCOIN_NETWORK,
         filter: None,
-    })
-    .await
-    .map_err(|e| format!("Failed to get UTXOs: {:?}", e))?;
+    };
+
+    let utxos_result = bitcoin_get_utxos(utxos_request)
+        .await
+        .map_err(|e| format!("Failed to get UTXOs: {:?}", e))?;
 
     // Create transaction to lock Bitcoin (simplified)
     // In production, you'd create a proper HTLC script
@@ -313,15 +311,19 @@ async fn lock_bitcoin_assets(swap: &SwapRequest) -> Result<String, String> {
         &swap.hash_lock,
     )?;
 
-    // Sign and send transaction
-    let tx_id = bitcoin_send_transaction(SendTransactionRequest {
-        transaction: tx_bytes,
+    // Send transaction
+    let send_request = SendTransactionRequest {
+        transaction: tx_bytes.clone(),
         network: BITCOIN_NETWORK,
-    })
-    .await
-    .map_err(|e| format!("Failed to send Bitcoin transaction: {:?}", e))?;
+    };
 
-    Ok(hex::encode(tx_id.0))
+    bitcoin_send_transaction(send_request)
+        .await
+        .map_err(|e| format!("Failed to send Bitcoin transaction: {:?}", e))?;
+
+    // Calculate and return transaction ID
+    let tx_id = calculate_bitcoin_txid(&tx_bytes);
+    Ok(hex::encode(tx_id))
 }
 
 async fn lock_ethereum_assets(swap: &SwapRequest) -> Result<String, String> {
@@ -361,14 +363,17 @@ async fn release_bitcoin_assets(swap: &SwapRequest) -> Result<String, String> {
         &swap.hash_lock,
     )?;
 
-    let tx_id = bitcoin_send_transaction(SendTransactionRequest {
-        transaction: tx_bytes,
+    let send_request = SendTransactionRequest {
+        transaction: tx_bytes.clone(),
         network: BITCOIN_NETWORK,
-    })
-    .await
-    .map_err(|e| format!("Failed to send Bitcoin transaction: {:?}", e))?;
+    };
 
-    Ok(hex::encode(tx_id.0))
+    bitcoin_send_transaction(send_request)
+        .await
+        .map_err(|e| format!("Failed to send Bitcoin transaction: {:?}", e))?;
+
+    let tx_id = calculate_bitcoin_txid(&tx_bytes);
+    Ok(hex::encode(tx_id))
 }
 
 async fn release_ethereum_assets(swap: &SwapRequest) -> Result<String, String> {
@@ -382,7 +387,7 @@ async fn release_ethereum_assets(swap: &SwapRequest) -> Result<String, String> {
     Ok(tx_hash)
 }
 
-async fn release_icp_assets(swap: &SwapRequest) -> Result<String, String> {
+async fn release_icp_assets(_swap: &SwapRequest) -> Result<String, String> {
     // Transfer ICP tokens from escrow to target address
     Ok("icp_release_tx_".to_string() + &generate_transaction_id())
 }
@@ -443,13 +448,22 @@ fn update_swap_status(swap_id: &str, status: SwapStatus) {
 fn public_key_to_bitcoin_address(public_key: &[u8]) -> String {
     // Simplified Bitcoin address generation
     // In production, implement proper P2PKH address generation
-    format!("bc1q{}", hex::encode(&public_key[..20]))
+    format!("tb1q{}", hex::encode(&public_key[..20]))
 }
 
 fn public_key_to_ethereum_address(public_key: &[u8]) -> String {
     // Simplified Ethereum address generation  
     // In production, use Keccak-256 hash and proper formatting
     format!("0x{}", hex::encode(&public_key[12..32]))
+}
+
+fn calculate_bitcoin_txid(tx_bytes: &[u8]) -> [u8; 32] {
+    // Calculate double SHA256 hash for Bitcoin transaction ID
+    let first_hash = Sha256::digest(tx_bytes);
+    let second_hash = Sha256::digest(&first_hash);
+    let mut txid = [0u8; 32];
+    txid.copy_from_slice(&second_hash);
+    txid
 }
 
 // Simplified transaction creation functions
@@ -461,7 +475,11 @@ fn create_bitcoin_htlc_transaction(
 ) -> Result<Vec<u8>, String> {
     // This would create a proper Bitcoin HTLC transaction
     // For now, return dummy transaction bytes
-    Ok(vec![0u8; 32])
+    let mut tx_bytes = vec![0u8; 250];
+    // Add some randomness to make each transaction unique
+    let timestamp = api::time().to_be_bytes();
+    tx_bytes[..8].copy_from_slice(&timestamp);
+    Ok(tx_bytes)
 }
 
 async fn create_ethereum_htlc_transaction(
@@ -481,7 +499,10 @@ fn create_bitcoin_release_transaction(
     _hash_lock: &str,
 ) -> Result<Vec<u8>, String> {
     // Create transaction to claim from Bitcoin HTLC
-    Ok(vec![0u8; 32])
+    let mut tx_bytes = vec![0u8; 250];
+    let timestamp = api::time().to_be_bytes();
+    tx_bytes[..8].copy_from_slice(&timestamp);
+    Ok(tx_bytes)
 }
 
 async fn release_ethereum_htlc_assets(
@@ -496,10 +517,13 @@ async fn release_ethereum_htlc_assets(
 // Pre/Post upgrade hooks
 #[pre_upgrade]
 fn pre_upgrade() {
-    // Store state before upgrade
+    // Store state before upgrade - implement serialization of state
+    // This is where you'd save SWAPS, BITCOIN_ADDRESSES, etc. to stable storage
 }
 
 #[post_upgrade] 
 fn post_upgrade() {
-    // Restore state after upgrade
+    // Restore state after upgrade - implement deserialization of state
+    // This is where you'd restore SWAPS, BITCOIN_ADDRESSES, etc. from stable storage
+    init(); // Re-initialize exchange rates
 }

@@ -1,36 +1,3 @@
-develop a prototype to work in real world and use rust for ICP contracts and all essentials for real world implementation make the changes and tell me how to do it
-
-Edit
-I'll create a real-world prototype with actual ICP canisters in Rust and a complete implementation. This will be a working system you can deploy.
-
-
-Cross-Chain Swap Backend (Rust Canister)
-Code 
-
-Ethereum HTLC Smart Contract
-Code 
-
-
-
-Continue
-
-Edit
-
-Ethereum HTLC Smart Contract
-Code ∙ Version 2 
-
-Real-World Frontend Implementation
-Interactive artifact 
-
-Complete Deployment Guide
-Document 
-
-
-
-
-
-
-// Cargo.toml
 [package]
 name = "cross_chain_swap"
 version = "0.1.0"
@@ -40,13 +7,15 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-ic-cdk = "0.10"
-ic-cdk-macros = "0.7"
+ic-cdk = "0.13"
+ic-cdk-macros = "0.13"
 candid = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-hex = "0.4"
 sha2 = "0.10"
-ic-btc-interface = "0.2"
-ic-ethereum-api = "0.1"
-ic-web3-rs = "0.1"
+hex = "0.4"
+
+[profile.release]
+opt-level = 3
+debug = false
+strip = true
