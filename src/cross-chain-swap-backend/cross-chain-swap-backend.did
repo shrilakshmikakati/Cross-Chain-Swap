@@ -1,3 +1,82 @@
+type SwapRequest = record {
+  id: text;
+  from_chain: text;
+  to_chain: text;
+  from_token: text;
+  to_token: text;
+  from_amount: nat64;
+  to_amount: nat64;
+  sender: text;
+  recipient: text;
+  hash_lock: text;
+  time_lock: nat64;
+  status: SwapStatus;
+  created_at: nat64;
+  expires_at: nat64;
+};
+
+type SwapStatus = variant {
+  Pending;
+  Locked;
+  Completed;
+  Refunded;
+  Expired;
+  Failed;
+};
+
+type SwapResponse = variant {
+  Ok: SwapRequest;
+  Err: text;
+};
+
+type SwapListResponse = variant {
+  Ok: vec SwapRequest;
+  Err: text;
+};
+
+type InitiateSwapArgs = record {
+  from_chain: text;
+  to_chain: text;
+  from_token: text;
+  to_token: text;
+  from_amount: nat64;
+  to_amount: nat64;
+  recipient: text;
+  time_lock_duration: nat64;
+};
+
+type CompleteSwapArgs = record {
+  swap_id: text;
+  secret: text;
+};
+
+type RefundSwapArgs = record {
+  swap_id: text;
+};
+
 service : {
-    "greet": (text) -> (text) query;
+  // Core swap functions
+  initiate_swap: (InitiateSwapArgs) -> (SwapResponse);
+  complete_swap: (CompleteSwapArgs) -> (SwapResponse);
+  refund_swap: (RefundSwapArgs) -> (SwapResponse);
+  
+  // Query functions
+  get_swap: (text) -> (SwapResponse) query;
+  get_user_swaps: (text) -> (SwapListResponse) query;
+  get_all_swaps: () -> (SwapListResponse) query;
+  get_swap_status: (text) -> (variant { Ok: SwapStatus; Err: text }) query;
+  
+  // Utility functions
+  generate_hash_lock: (text) -> (text);
+  verify_secret: (text, text) -> (bool) query;
+  get_current_time: () -> (nat64) query;
+  
+  // Cross-chain verification
+  verify_bitcoin_transaction: (text, text) -> (bool);
+  verify_ethereum_transaction: (text, text) -> (bool);
+  
+  // Fee management
+  calculate_swap_fee: (text, text, nat64) -> (nat64) query;
+  get_supported_chains: () -> (vec text) query;
+  get_supported_tokens: (text) -> (vec text) query;
 }

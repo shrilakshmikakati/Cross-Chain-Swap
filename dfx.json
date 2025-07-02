@@ -1,45 +1,33 @@
 {
+  "version": 1,
   "canisters": {
-    "cross-chain-swap-backend": {
-      "candid": "src/cross-chain-swap-backend/cross-chain-swap-backend.did",
-      "package": "cross-chain-swap-backend",
-      "type": "rust"
+    "cross_chain_swap": {
+      "type": "rust",
+      "package": "cross_chain_swap",
+      "candid": "src/backend/cross_chain_swap.did"
     },
-    "cross-chain-swap-frontend": {
-      "dependencies": [
-        "cross-chain-swap-backend"
-      ],
-      "source": [
-        "src/cross-chain-swap-frontend/dist"
-      ],
+    "frontend": {
       "type": "assets",
-      "workspace": "cross-chain-swap-frontend"
-    },
-    "internet_identity": {
-      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
-      "frontend": {},
-      "remote": {
-        "id": {
-          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
-        }
-      },
-      "type": "custom",
-      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
+      "source": [
+        "src/frontend/build"
+      ]
     }
   },
   "defaults": {
-    "bitcoin": {
-      "enabled": true,
-      "log_level": "info",
-      "nodes": [
-        "127.0.0.1:18444"
-      ]
-    },
     "build": {
       "args": "",
       "packtool": ""
     }
   },
   "output_env_file": ".env",
-  "version": 1
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:4943",
+      "type": "ephemeral"
+    },
+    "ic": {
+      "providers": ["https://ic0.app"],
+      "type": "persistent"
+    }
+  }
 }

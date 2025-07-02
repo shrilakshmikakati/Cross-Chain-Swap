@@ -1,61 +1,251 @@
-# `cross-chain-swap`
+# Cross-Chain Asset Swap Protocol on ICP
 
-Welcome to your new `cross-chain-swap` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+A decentralized, trustless cross-chain asset swap protocol built on the Internet Computer Protocol (ICP) that enables seamless swaps between Bitcoin, Ethereum, and ICP without centralized exchanges or wrapped tokens.
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+## 🚀 Features
 
-To learn more before you start working with `cross-chain-swap`, see the following documentation available online:
+- **Trustless Cross-Chain Swaps**: No intermediaries or wrapped tokens required
+- **Native Blockchain Integration**: Direct Bitcoin and Ethereum transaction signing via ICP's Chain-Key cryptography
+- **Atomic Swaps**: Using Hash Time Lock Contracts (HTLCs) and zk-SNARKs
+- **Multi-Wallet Support**: Compatible with Plug, MetaMask, and Hiro wallets
+- **Real-Time Tracking**: Visual dashboard showing swap progress from initiation to completion
+- **Low Fees**: Optimized fee routing and minimal transaction costs
+- **High Throughput**: Built for DeFi scalability
 
-- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
-- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
-- [Rust Canister Development Guide](https://internetcomputer.org/docs/current/developer-docs/backend/rust/)
-- [ic-cdk](https://docs.rs/ic-cdk)
-- [ic-cdk-macros](https://docs.rs/ic-cdk-macros)
-- [Candid Introduction](https://internetcomputer.org/docs/current/developer-docs/backend/candid/)
+## 🏗️ Architecture
 
-If you want to start working on your project right away, you might want to try the following commands:
-
-```bash
-cd cross-chain-swap/
-dfx help
-dfx canister --help
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Bitcoin       │    │   Ethereum      │    │      ICP        │
+│   Network       │◄──►│   Network       │◄──►│   Canisters     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                      │
+                                               ┌─────────────────┐
+                                               │  Frontend App   │
+                                               │  (React.js)     │
+                                               └─────────────────┘
 ```
 
-## Running the project locally
+### Core Components
 
-If you want to test your project locally, you can use the following commands:
+1. **ICP Canister Backend**: Rust-based smart contracts managing swap logic
+2. **Ethereum Smart Contracts**: HTLC implementation for Ethereum-side locks
+3. **React Frontend**: User interface for initiating and monitoring swaps
+4. **Chain-Key Integration**: Native cross-chain transaction signing
+
+## 📋 Prerequisites
+
+- [Node.js](https://nodejs.org/) (v16 or higher)
+- [Rust](https://rustup.rs/) (latest stable)
+- [DFX](https://internetcomputer.org/docs/current/developer-docs/setup/install/) (latest version)
+- [Hardhat](https://hardhat.org/) for Ethereum development
+- Wallet extensions: Plug, MetaMask, or Hiro
+
+## 🛠️ Installation
+
+### 1. Clone the Repository
 
 ```bash
-# Starts the replica, running in the background
-dfx start --background
-
-# Deploys your canisters to the replica and generates your candid interface
-dfx deploy
+git clone https://github.com/your-username/cross-chain-swap.git
+cd cross-chain-swap
 ```
 
-Once the job completes, your application will be available at `http://localhost:4943?canisterId={asset_canister_id}`.
+### 2. Install Dependencies
 
-If you have made changes to your backend canister, you can generate a new candid interface with
-
+#### Backend (ICP Canister)
 ```bash
-npm run generate
+cd src/backend
+cargo build
 ```
 
-at any time. This is recommended before starting the frontend development server, and will be run automatically any time you run `dfx deploy`.
-
-If you are making frontend changes, you can start a development server with
-
+#### Frontend
 ```bash
+cd src/frontend
+npm install
+```
+
+#### Ethereum Contracts
+```bash
+cd ethereum
+npm install
+```
+
+### 3. Local Development Setup
+
+#### Start Local ICP Replica
+```bash
+dfx start --clean --background
+```
+
+#### Deploy Canister
+```bash
+dfx deploy cross_chain_swap
+```
+
+#### Start Ethereum Local Node
+```bash
+cd ethereum
+npx hardhat node
+```
+
+#### Deploy Ethereum Contracts
+```bash
+cd ethereum
+npx hardhat run scripts/deploy.js --network localhost
+```
+
+#### Start Frontend
+```bash
+cd src/frontend
 npm start
 ```
 
-Which will start a server at `http://localhost:8080`, proxying API requests to the replica at port 4943.
+## 🔧 Configuration
 
-### Note on frontend environment variables
+### Environment Variables
 
-If you are hosting frontend code somewhere without using DFX, you may need to make one of the following adjustments to ensure your project does not fetch the root key in production:
+Create `.env` files in the respective directories:
 
-- set`DFX_NETWORK` to `ic` if you are using Webpack
-- use your own preferred method to replace `process.env.DFX_NETWORK` in the autogenerated declarations
-  - Setting `canisters -> {asset_canister_id} -> declarations -> env_override to a string` in `dfx.json` will replace `process.env.DFX_NETWORK` with the string in the autogenerated declarations
-- Write your own `createActor` constructor
+#### Frontend (.env)
+```
+REACT_APP_CANISTER_ID=your_canister_id
+REACT_APP_ETHEREUM_RPC_URL=http://localhost:8545
+REACT_APP_ETHEREUM_CHAIN_ID=1337
+```
+
+#### Ethereum (.env)
+```
+PRIVATE_KEY=your_private_key
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR-PROJECT-ID
+MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR-PROJECT-ID
+ETHERSCAN_API_KEY=your_etherscan_api_key
+```
+
+## 📖 Usage
+
+### Initiating a Cross-Chain Swap
+
+1. **Connect Wallet**: Connect your preferred wallet (Plug for ICP, MetaMask for Ethereum)
+2. **Select Chains**: Choose source and destination chains
+3. **Enter Amount**: Specify the amount to swap
+4. **Set Parameters**: Configure timelock duration and recipient address
+5. **Initiate Swap**: Sign the transaction to create the HTLC
+6. **Monitor Progress**: Track the swap status in real-time
+
+### Completing a Swap
+
+1. **Reveal Secret**: The recipient reveals the secret to unlock funds
+2. **Automatic Execution**: Smart contracts automatically complete the swap
+3. **Confirmation**: Both parties receive confirmation of successful swap
+
+### Refunding a Swap
+
+If the swap isn't completed before the timelock expires:
+1. **Timelock Expiry**: Wait for the timelock period to pass
+2. **Refund Request**: Original sender can request a refund
+3. **Automatic Refund**: Funds are returned to the original sender
+
+## 🔐 Security Features
+
+- **Hash Time Lock Contracts**: Ensure atomic swaps or automatic refunds
+- **Chain-Key Cryptography**: Secure cross-chain transaction signing
+- **Multi-Signature Support**: Enhanced security for large transactions
+- **Audit Trail**: Complete transaction history and verification
+- **Emergency Stops**: Admin controls for critical situations
+
+## 🧪 Testing
+
+### Run Backend Tests
+```bash
+cd src/backend
+cargo test
+```
+
+### Run Ethereum Contract Tests
+```bash
+cd ethereum
+npx hardhat test
+```
+
+### Run Frontend Tests
+```bash
+cd src/frontend
+npm test
+```
+
+### Integration Tests
+```bash
+./scripts/integration-test.sh
+```
+
+## 🚀 Deployment
+
+### Mainnet Deployment
+
+#### Deploy to IC Mainnet
+```bash
+dfx deploy --network ic cross_chain_swap
+```
+
+#### Deploy to Ethereum Mainnet
+```bash
+cd ethereum
+npx hardhat run scripts/deploy.js --network mainnet
+```
+
+#### Build and Deploy Frontend
+```bash
+cd src/frontend
+npm run build
+dfx deploy --network ic frontend
+```
+
+## 📊 Supported Assets
+
+### Current Support
+- **Bitcoin (BTC)**: Native Bitcoin transactions
+- **Ethereum (ETH)**: Native Ethereum transactions
+- **ICP**: Internet Computer Protocol tokens
+- **ERC-20 Tokens**: Popular Ethereum-based tokens
+
+### Planned Support
+- **Wrapped Bitcoin (WBTC)**
+- **USD Stablecoins (USDC, USDT)**
+- **Other Layer 1 Blockchains**
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔗 Links
+
+- [Documentation](https://docs.cross-chain-swap.com)
+- [API Reference](https://api.cross-chain-swap.com)
+- [Discord Community](https://discord.gg/cross-chain-swap)
+- [Twitter](https://twitter.com/CrossChainSwap)
+
+## ⚠️ Disclaimer
+
+This is experimental software. Use at your own risk. Always verify transaction details before proceeding with swaps.
+
+## 🙏 Acknowledgments
+
+- Internet Computer Protocol team for Chain-Key cryptography
+- OpenZeppelin for smart contract security standards
+- Hardhat team for development tools
+- React team for the frontend framework
+
+---
+
+**Built with ❤️ on the Internet Computer**
