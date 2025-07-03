@@ -1,5 +1,29 @@
-[workspace]
-members = [
-    "src/cross-chain-swap-backend"
-]
-resolver = "2"
+[package]
+name = "cross_chain_swap"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[patch.crates-io]
+ring = { version = "0.16" } # Updated to a potentially safer version
+
+[dependencies]
+ic-cdk = "0.13.6"
+ic-cdk-macros = "0.13.2"
+candid = "0.10.14"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+
+ic-btc-interface = "0.2"
+ethers = "2.0.14" # Reverted to the latest known 2.0.x
+ic-web3-rs = "0.1"
+
+hex = "0.4"
+
+[profile.release]
+opt-level = 3
+debug = false
+strip = true
