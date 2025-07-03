@@ -4,12 +4,12 @@
     "cross_chain_swap": {
       "type": "rust",
       "package": "cross_chain_swap",
-      "candid": "src/backend/cross_chain_swap.did"
+      "candid": "src/cross-chain-swap-backend/cross-chain-swap-backend.did"
     },
     "frontend": {
       "type": "assets",
       "source": [
-        "src/frontend/build"
+        "src/cross-chain-swap-frontend/build"
       ]
     }
   },
