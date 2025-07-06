@@ -101,7 +101,7 @@ export const chainUtils = {
       if (typeof window !== 'undefined' && window.ethereum) {
         const { ethers } = await import('ethers');
         return new ethers.BrowserProvider(window.ethereum);
-      }
+      } 
       throw new Error('MetaMask not found');
     },
 
