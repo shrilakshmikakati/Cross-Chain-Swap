@@ -15,7 +15,7 @@ function App() {
         window.addEventListener('mousemove', handleMouseMove);
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, []);
-
+ 
     // Sticky header effect
     useEffect(() => {
         const handleScroll = () => {
